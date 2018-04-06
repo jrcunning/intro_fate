@@ -1,0 +1,324 @@
+---
+title: "Symbiont loss as a function of DHW's"
+author: "Ross Cunning"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup}
+# Seat knitr options
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+knitr::opts_knit$set(root.dir = normalizePath(".."))
+```
+
+```{r load_libs}
+# Load libraries
+library(lsmeans)
+library(tidyverse)
+library(stringr)
+library(lme4)
+library(cowplot)
+
+# Set ggplot theme
+theme_set(theme_bw())
+theme_update(text = element_text(size=12),
+panel.grid.major = element_blank(),
+panel.grid.minor = element_blank(),
+strip.background = element_blank()
+)
+
+# Create species labels
+species_labels <- c(
+  'ss' = "S. siderea", 
+  'mc' = "M. cavernosa"
+)
+
+```
+
+### Load data from repositories
+```{r}
+# Load Tenacious D data
+data <- read.csv("https://raw.githubusercontent.com/jrcunning/tenaciousD/master/tenaciousD_data.csv")
+
+# Load symshuff-3c data
+rr <- read_csv("https://raw.githubusercontent.com/jrcunning/symshuff-3c/master/data/master.csv")
+```
+
+```{r wrangle_td, include = FALSE}
+# This code is from the tenacious D analysis repository script "setup.R"
+data$prevBleach <- ifelse(data$history %in% c("24A'", "B'", "A'"), "NB", "B")
+
+# Adjust and transform data
+# Create factor version of time
+data$timef <- factor(data$time)
+#Based on the relative abundance of clades C and D at time zero, each coral was categorized as 
+#either initially clade C-dominated or clade D-dominated (groups hereafter referred to as C corals #and D corals, respectively). For samples missing qPCR data at time zero, data from the previous 
+#time point (Silverstein et al. 2015) were substituted in the case of non-bleached corals. For 
+#bleached corals, no data were substituted but cores were categorized as C- or D-dominated based 
+#on data from the subsequent time point. For samples in which no clade C or D was detected, the 
+#S/H ratio for that clade was set to a value just below the detection threshold, defined as the 
+#minimum S/H ratio detected for that clade across the entire dataset (1e-6 for clade C, 1e-4 for 
+#clade D).
+# Calculate proportion D in each sample
+data$propD <- data$D.SH / (data$C.SH + data$D.SH)
+# Categorize C- and D-dominated corals based on community composition at time zero
+dom <- with(data[data$time==0, ], na.omit(data.frame(sample=sample, 
+                                                     dom=ifelse(is.na(propD), NA, ifelse(propD > 0.5, "D", "C")))))
+
+# Count number of cores with mixed communities
+syms <- aggregate(data.frame(C=data$C.SH, D=data$D.SH), by=list(core=data$sample), FUN=mean, na.rm=T)
+symstab <- addmargins(table(syms$C!=0, syms$D!=0)) # True if ever contained C (rows) or D (columns)
+dimnames(symstab) <- list(C_detected=c("no", "yes", "Sum"), D_detected=c("no", "yes", "Sum"))
+ftable(symstab)  # 129/158 had both detected at least once (81.6%)
+
+# Merge dominant symbiont classification with rest of data
+data <- merge(data, dom, by="sample", all.x=T)
+table(data[data$time==0, "dom"])  # 27 C-dominant and 88 D-dominant corals = 115 corals with qPCR data at t0
+data <- data[with(data, order(sample, time)), ]
+# Assign dominant symbiont to corals missing data for t0
+# 2_24 is missing data but was never heated, so assign C dominant
+data[data$sample=="2_24", "dom"] <- "C"
+# All other corals without data for t0 were subsequently D dominant at other times, so assign D dominance
+data$dom[is.na(data$dom)] <- "D"
+# Replace zeros with detection limits (just below minimum detected value)
+table(data$C.SH==0) # 22% of samples had no detectable clade C
+table(data$D.SH==0) # 16% of samples had no detectable clade D
+min(data[data$C.SH!=0,"C.SH"], na.rm=T) # detection limit for C is ~1e-6
+min(data[data$D.SH!=0,"D.SH"], na.rm=T) # detection limit for D is ~1e-4
+data[data$C.SH==0 & !is.na(data$C.SH), "C.SH"] <- 1e-6
+data[data$D.SH==0 & !is.na(data$D.SH), "D.SH"] <- 1e-4
+data$tot.SH <- data$C.SH + data$D.SH
+data[data$tot.SH<0.000101 & !is.na(data$tot.SH), "tot.SH"] <- 0.000101
+```
+
+### *M. cavernosa* from Tenacious D experiment (Silverstein et al. 2017)
+```{r mcav_td}
+# Get subset of tenaciousD data from heating treatment and wrangle data
+mc.td <- as_tibble(subset(data, ramp=="heat")) %>%
+  rename(Colony = mother, Core = sample, SH = tot.SH) %>%
+  mutate(Colony = paste0("Mc", Colony),
+         Core = paste0("Mc", Core),
+         dhw = recode(timef, `0`=0, `28`=7.5, `42`=17.5),
+         species="mc", expt="td") %>%
+  select(Colony, Core, dhw, dom, SH, species, expt) %>% 
+  drop_na()
+
+# Plot SH ratio as a function of DHW's for each symbiont type
+ggplot(mc.td, aes(x = dhw, y = log10(SH), col = dom)) + 
+  geom_point(position = position_dodge(width = 0.5)) + 
+  scale_color_manual(values=c("cornflowerblue", "coral"))
+```
+
+### *M. cavernosa* from repeat bleaching experiment (Silverstein et al. 2015)
+```{r mcav_rb}
+# Subset M. cavernosa repeat bleaching and wrangle data
+mc.rb <- rr %>%
+  filter(Species=="Mc", BleachLvl2=="Heat") %>%
+  mutate(dom = case_when(PropD.recov <= 0.1 ~ "C", PropD.recov >= 0.9 ~ "D")) %>%
+  select(Species, Colony, Core, dom, Total.recov, Total.bleach2) %>%
+  drop_na() %>%
+  gather(key = "dhw", value = "SH", Total.recov, Total.bleach2, factor_key = TRUE) %>%
+  mutate(dhw = recode(dhw, Total.recov = 0, Total.bleach2 = 3.57),
+         expt="rb", species="mc")
+
+# Plot SH ratio as a function of DHW's for each symbiont type
+ggplot(mc.rb, aes(x = dhw, y = log10(SH), col = dom)) + 
+  geom_point(position = position_dodge(width = 0.15)) + 
+  scale_color_manual(values=c("cornflowerblue", "coral"))
+```
+
+### *S. siderea* from BleachLvl experiment  (Cunning et al. 2015)
+```{r ssid_rb}
+# Subset S. siderea data and wrangle
+ss <- rr %>%
+  filter(Species=="Ss") %>%
+  mutate(dhw = recode(BleachLvl, High=5, Med=3.57, Low=2.5)) %>%
+  filter(PropD.init <= 0.1 | PropD.init >= 0.9) %>%
+  mutate(dom=case_when(PropD.init <= 0.1 ~ "C", PropD.init >= 0.9 ~ "D"),
+         species="ss", expt="bl")
+
+ss.bl <- na.omit(bind_rows(
+  ss %>%
+    mutate(dhw=0, SH=Total.init) %>%
+    select(Colony, Core, dhw, dom, SH, species, expt),
+  ss %>%
+    mutate(SH=Total.bleach) %>%
+    select(Colony, Core, dhw, dom, SH, species, expt)
+))
+
+# Plot SH ratio as a function of DHW's for each symbiont type
+ggplot(ss.bl, aes(x=dhw, y=log10(SH), color=dom)) + 
+  geom_point(position = position_dodge(width = 0.15)) + 
+  scale_color_manual(values=c("cornflowerblue", "coral"))
+```
+
+***
+
+### Combine and filter datasets
+```{r combine_data}
+# Combine datasets
+df <- bind_rows(mc.td, mc.rb, ss.bl) %>% select(-Species)
+
+# Filter out any data points with SH ratios greater than 1 (biologically unrealistic, highest likelihood of poor quality qPCR amplification)
+df <- filter(df, SH < 1)
+```
+
+#### Model for each species separately
+
+```{r model_by_spp}
+# Model with species as a factor
+mod <- lme4::lmer(log10(SH) ~ dhw * dom * species + (1|expt) + (1|Colony), data=df)
+
+# Create data frame to collect model results
+resdf <- bind_rows(expand.grid(dhw=seq(0,5,0.01), dom=c("C", "D"), species=c("mc", "ss")),
+                   expand.grid(dhw=seq(6,18,0.01), dom=c("C", "D"), species="mc"))
+# Bootstrap model to get confidence intervals on fitted values
+bootfit <- bootMer(mod, FUN=function(x) predict(x, resdf, re.form=NA), nsim=1000)
+
+# Get fitted values and confidence intervals and back-transform to prop. remaining syms
+modres <- as_tibble(resdf %>%
+  mutate(logSH.fit = predict(mod, newdata = ., re.form= NA),
+         lci = apply(bootfit$t, 2, quantile, 0.08),
+         uci = apply(bootfit$t, 2, quantile, 0.92)) %>%
+  group_by(species, dom) %>%
+  mutate(remain = 10^logSH.fit / 10^logSH.fit[dhw==0],
+         remain.lci = 10^lci / 10^logSH.fit[dhw==0],
+         remain.uci = 10^uci / 10^logSH.fit[dhw==0])
+)
+
+# Plot SH as a function of DHW's for each symbiont type and coral species
+mod1 <- ggplot(df, aes(x=dhw, color=dom)) + 
+  geom_point(aes(y=log10(SH), shape=species), position = position_dodge(width = 0.5)) +
+  scale_color_manual(values=c("cornflowerblue", "coral")) +
+  geom_line(data=modres, aes(x=dhw, y=logSH.fit, color=dom, linetype=species)) +
+  theme(legend.position=c(0.7,0.8), legend.box="horizontal", legend.key.size=unit(5, "mm"),
+        legend.title=element_blank(), legend.margin=margin(0,0,0,0),
+        plot.margin = unit(c(0.8,0.1,0.2,0.1), "cm")) +
+  geom_ribbon(data=modres, aes(ymin=lci, ymax=uci, color=dom, linetype=species, size=NA), 
+              alpha=0.3) +
+  scale_x_continuous(expand=c(0,0)) +
+  scale_y_continuous(limits = c(-3.5, 1)) +
+  labs(x = "Degree heating weeks", y = "log10 relative S/H ratio")
+
+# Plot proportion symbionts remaining
+mod2 <- ggplot(modres, aes(x=dhw, y=remain, color=dom)) + geom_line() +
+  facet_grid(~ species, scales = "free_x", space = "free_x",
+             labeller = labeller(species = species_labels)) +
+  scale_color_manual(values=c("cornflowerblue", "coral")) +
+  geom_ribbon(aes(ymin=remain.lci, ymax=remain.uci), alpha=0.3, linetype=0) +
+  theme(strip.text = element_text(face = "italic"), legend.title=element_blank(),
+        legend.position=c(0.6, 0.85)) +
+  labs(x = "Degree heating weeks", y = "Proportion symbionts remaining") +
+  coord_cartesian(ylim = c(0, 1)) +
+  scale_x_continuous(expand=c(0,0)) +
+  scale_y_continuous(expand=c(0,0)) +
+  geom_vline(data=filter(modres, species=="mc"), aes(xintercept=4), lty=2, lwd=0.25) +
+  geom_vline(data=filter(modres, species=="mc"), aes(xintercept=8), lty=2, lwd=0.25) +
+  geom_vline(data=filter(modres, species=="ss"), aes(xintercept=4), lty=2, lwd=0.25)
+
+# ggsave("figures/fig2.png", plot=fig2, device="png", width=5, height=3.2, units="in")
+plot_grid(mod1, mod2, rel_widths=c(0.45,0.55))
+```
+
+# Alternative approach with SH data normalized
+```{r}
+# Normalize SH data using the average for each species/symbiont at dhw=0
+dfn <- df %>%
+  group_by(species, dom, expt) %>%
+  mutate(SHn = 10^(log10(SH) - mean(log10(SH[dhw==0]))))
+
+# Model with species as a factor
+nmod <- lme4::lmer(log10(SHn) ~ dhw * dom * species + (1|expt) + (1|Colony), data=dfn)
+
+# Bootstrap model to get confidence intervals on fitted values
+nbootfit <- bootMer(nmod, FUN=function(x) predict(x, resdf, re.form=NA), nsim=1000)
+
+# Get fitted values and confidence intervals and back-transform to prop. remaining syms
+nmodres <- as_tibble(resdf %>%
+  mutate(logSH.fit = predict(nmod, newdata = ., re.form= NA),
+         lci = apply(nbootfit$t, 2, quantile, 0.08),
+         uci = apply(nbootfit$t, 2, quantile, 0.92)) %>%
+  group_by(species, dom) %>%
+  mutate(remain = 10^logSH.fit / 10^logSH.fit[dhw==0],
+         remain.lci = 10^lci / 10^logSH.fit[dhw==0],
+         remain.uci = 10^uci / 10^logSH.fit[dhw==0])
+)
+
+# Plot SH as a function of DHW's for each symbiont type and coral species
+nmod1 <- ggplot(dfn, aes(x=dhw, color=dom)) + 
+  geom_point(aes(y=log10(SHn), shape=species), position = position_dodge(width = 0.5)) +
+  scale_color_manual(values=c("cornflowerblue", "coral")) +
+  geom_line(data=nmodres, aes(x=dhw, y=logSH.fit, color=dom, linetype=species)) +
+  theme(legend.position=c(0.7,0.8), legend.box="horizontal", legend.key.size=unit(5, "mm"),
+        legend.title=element_blank(), legend.margin=margin(0,0,0,0),
+        plot.margin = unit(c(0.8,0.1,0.2,0.1), "cm")) +
+  geom_ribbon(data=nmodres, aes(ymin=lci, ymax=uci, color=dom, linetype=species, size=NA), 
+              alpha=0.3) +
+  scale_x_continuous(expand=c(0,0)) +
+  scale_y_continuous(limits = c(-3.5, 1)) +
+  labs(x = "Degree heating weeks", y = "log10 relative S/H ratio")
+
+# Plot proportion symbionts remaining
+nmod2 <- ggplot(nmodres, aes(x=dhw, y=remain, color=dom)) + geom_line() +
+  facet_grid(~ species, scales = "free_x", space = "free_x",
+             labeller = labeller(species = species_labels)) +
+  scale_color_manual(values=c("cornflowerblue", "coral")) +
+  geom_ribbon(aes(ymin=remain.lci, ymax=remain.uci), alpha=0.3, linetype=0) +
+  theme(strip.text = element_text(face = "italic"), legend.title=element_blank(),
+        legend.position=c(0.6, 0.85)) +
+  labs(x = "Degree heating weeks", y = "Proportion symbionts remaining") +
+  coord_cartesian(ylim = c(0, 1)) +
+  scale_x_continuous(expand=c(0,0)) +
+  scale_y_continuous(expand=c(0,0)) +
+  geom_vline(data=filter(nmodres, species=="mc"), aes(xintercept=4), lty=2, lwd=0.25) +
+  geom_vline(data=filter(nmodres, species=="mc"), aes(xintercept=8), lty=2, lwd=0.25) +
+  geom_vline(data=filter(nmodres, species=="ss"), aes(xintercept=4), lty=2, lwd=0.25)
+
+
+plot_grid(nmod1, nmod2, rel_widths=c(0.45,0.55))
+```
+
+
+
+```{r model_all, eval=F, include=F}
+#### Model all data together (across species)
+
+# Model SH as a function of DHW's for each symbiont type
+mod <- lmerTest::lmer(log10(SH) ~ dhw * dom + (species|Colony/Core), data=df)
+lmerTest::anova(mod)
+#plot(mod, resid(.) ~ dhw | dom)
+
+# Get fitted values
+newdat1 <- expand.grid(dhw=seq(0,18), dom=c("C", "D"))
+newdat1$logSH.fit <- predict(mod, newdata = newdat1, re.form = NA)
+
+# Get 95% confidence interval on predicted values
+bootfit <- bootMer(mod, FUN=function(x) predict(x, newdat1, re.form=NA), nsim=1000)
+newdat1$lci <- apply(bootfit$t, 2, quantile, 0.025)
+newdat1$uci <- apply(bootfit$t, 2, quantile, 0.975)
+
+# Plot SH as a function of DHW's for each symbiont type and coral species
+ggplot(df, aes(x=dhw, color=dom)) + 
+  geom_point(aes(y=log10(SH), shape=species), position = position_dodge(width = 0.5)) +
+  scale_color_manual(values=c("cornflowerblue", "coral")) +
+  geom_line(data=newdat1, aes(x=dhw, y=logSH.fit)) +
+  geom_ribbon(data=newdat1, aes(ymin=lci, ymax=uci, color=dom, size=NA), 
+              alpha=0.3)
+
+# Convert to proportion symbionts remaining and plot
+newdat1 <- newdat1 %>%
+  group_by(dom) %>%
+  mutate(remain = 10^logSH.fit / 10^logSH.fit[dhw==0],
+         remain.lci = 10^lci / 10^logSH.fit[dhw==0],
+         remain.uci = 10^uci / 10^logSH.fit[dhw==0])
+
+ggplot(newdat1, aes(x=dhw, y=remain, color=dom)) + geom_line() +
+  scale_color_manual(values=c("cornflowerblue", "coral")) +
+  geom_ribbon(aes(ymin=remain.lci, ymax=remain.uci), alpha=0.3, linetype=0) +
+  theme(strip.text = element_text(face = "italic"), legend.title=element_blank(),
+        legend.position=c(0.85, 0.85)) +
+  labs(x = "Degree heating weeks", y = "Proportion symbionts remaining") +
+  coord_cartesian(ylim = c(0, 1)) +
+  scale_x_continuous(expand=c(0,0)) +
+  scale_y_continuous(expand=c(0,0))
+```
