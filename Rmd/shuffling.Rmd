@@ -105,19 +105,32 @@ p <- plot_ly() %>%
 p
 
 # plot 3d surface plots for both recovtemps together
+m <- list(l=0, r=0, b=0, t=0, pad=0)
+zero <- matrix(rep(0, 100), ncol=10, nrow=10)
 p <- plot_ly() %>% 
   add_surface(x=seq(0.5, 1, len=10), y=seq(0, 0.15, len=10), z=as.matrix(dat24), 
-              cmin=-1, cmax=1,
-              colorscale="Jet", opacity=0.99) %>%
+              cmin=-1, cmax=1, colorscale="Jet", opacity=0.7) %>%
   add_surface(x=seq(0.5, 1, len=10), y=seq(0, 0.15, len=10), z=as.matrix(dat29), 
-              cmin=-1, cmax=1,
-              colorscale="Jet", opacity=0.99) %>%
-  layout(scene=list(aspectmode='manual', aspectratio=list(x=0.85, y=0.85, z=0.85),
-                    xaxis=list(title="Pct bleaching"),
-                    yaxis=list(title="Advantage D"),
+              cmin=-1, cmax=1, colorscale="Jet", opacity=0.7, showscale=FALSE) %>%
+  colorbar(len=0.5, opacity=0.7) %>%
+  layout(scene=list(aspectmode='manual', 
+                    aspectratio=list(x=0.85, y=0.85, z=0.85),
+                    xaxis=list(title="% Bleaching"),
+                    yaxis=list(title="ADH"),
                     zaxis=list(title="Shuffling", range=c(-1,1)),
-                    camera=list(eye=list(x=-1.5,y=-1.5,z=0.75))))
+                    camera=list(eye=list(x=-1.4,y=-1.5,z=0.8))),
+         margin = m)
 p
 
 ```
+
+
+```{r}
+### SAVE PLOTLY IMAGE USING ACCOUNT
+#Sys.setenv("plotly_username"="jrcunning")
+#Sys.setenv("plotly_api_key"="a6BKmUYVTYhBNWxlxFwA")
+
+plotly_IMAGE(p, format = "png", width=600, height=500, out_file = "figures/3d.png")
+```
+
 
