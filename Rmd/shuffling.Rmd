@@ -31,18 +31,7 @@ symloss <- bind_rows(SsOf, Mc) %>%
   mutate(pct.loss = 1 - exp(lsmean)) %>%
   select(Species, BleachLvl, pct.loss)
 
-
-
-# Old code used recovery temperature in the model -- not sure why -- don't think needed? it was averaged across recovery temps but maybe was weighted slightly to whichever RecovTemp had slightly more reps?
-# dat <- rbind(SsOf, Mc)[, c("Species", "Colony", "Core", "Total.init", "PropD.init", "MaxY.init", "BleachLvl", "RecovTemp", "Total.bleach", "PropD.bleach", "MaxY.bleach", "Total.recov", "PropD.recov", "MaxY.recov")]
-# 
-# symloss.mod <- glm(log(Total.bleach/Total.init) ~ PropD.init + Species*BleachLvl*RecovTemp,
-#                  data=dat, family=gaussian)
-# lsm <- summary(lsmeans(symloss.mod, specs=c("Species", "BleachLvl", "RecovTemp")))
-# lsm$pct.loss <- 1-exp(lsm$lsmean)
-# symloss <- lsm[, c("Species", "BleachLvl", "pct.loss")]
-# 
-# symloss
+symloss
 ```
 
 ### Get photochemical advantage of D under heat stress in each coral species 
@@ -54,7 +43,6 @@ ADH
 
 ### Calculate integrated shuffling response for each coral in each treatment
 ```{r shuffling}
-# New code: does not estimate response for unobserved factor combos (Mc/Low, Mc/High), like previous code using effects package did....
 shuffle <- bind_rows(SsOf, Mc) %>%
   select(Species, BleachLvl, RecovTemp, PropD.init, PropD.recov) %>%
   mutate(RecovTemp = factor(RecovTemp)) %>%
@@ -64,33 +52,7 @@ shuffle <- bind_rows(SsOf, Mc) %>%
   group_by(Species, BleachLvl, RecovTemp) %>%
   summarise(shuffle = (mean(prob)-0.5)/0.5)
 
-
-
-# # Old code
-# # Model shuffling including bleachlvl and recovery temp
-# recovdat <- rbind(SsOf, Mc)[, c("Species", "Colony", "Core", "Total.init", "PropD.init", "MaxY.init", "BleachLvl", "RecovTemp", "Total.recov", "PropD.recov", "MaxY.recov")]
-# recovdat$RecovTemp <- factor(recovdat$RecovTemp)
-# 
-# propDmod <- glm(PropD.recov ~ PropD.init + Species*BleachLvl*RecovTemp,
-#                  data=recovdat, family=quasibinomial)
-# #anova(propDmod, test="F")  # Partial F-tests
-# 
-# # Get fitted values for PropD.recov
-# eff <- effect(c("PropD.init", "Species", "BleachLvl", "RecovTemp"), propDmod, 
-#               xlevels=list(PropD.init=seq(0, 1, 0.01)))
-# 
-# # Get all fitted values and subsets for each bleaching level
-# res <- droplevels(data.frame(eff))
-# res$Species <- factor(res$Species, levels=c("Of", "Ss", "Mc"))
-# res.Med <- subset(data.frame(eff), BleachLvl=="Med")
-# res.Low <- subset(data.frame(eff), BleachLvl=="Low")
-# res.High <- subset(data.frame(eff), BleachLvl=="High")
-# 
-# # Get AUC for fitted values, lower and upper confidence limits
-# auc <- aggregate(data.frame(shuffle=res[, "fit"]), 
-#                  by=list(Species=res$Species, BleachLvl=res$BleachLvl, RecovTemp=res$RecovTemp),
-#                  FUN=function(x) (mean(x)-0.5)/0.5)
-# auc
+shuffle
 ```
 
 ### Model shuffling response with symbiont loss, photochemical advantage of D, and recovery temperature as predictors
@@ -127,39 +89,6 @@ dat29 <- pred %>%
   remove_rownames() %>% 
   column_to_rownames(var = "ADH")
          
-# # Old code
-# # merge predictors and response
-# resdf <- merge(merge(symloss, ADH), auc)
-# #scale shuffling response to 0-1 to fit quasibinomial model
-# resdf$shuffle.scaled <- scales::rescale(resdf$shuffle, from=c(-1, 1), to=c(0, 1))
-# resdf
-# 
-# # fit model
-# mod <- glm(shuffle.scaled ~ pct.loss * ADH * RecovTemp, family="quasibinomial", data=resdf)
-# anova(mod, test="F")
-# # calculate pseudo-R^2
-# pseudoR2 <- with(summary(mod), {
-#   1 - deviance / null.deviance
-# })
-# pseudoR2
-# 
-# # Use model to predict across range of predictors
-# newdat <- expand.grid(pct.loss=seq(0.5, 1, len=10), ADH=seq(0, 0.15, len=10), RecovTemp=factor(c(24,29)))
-# newdat$fit <- predict(mod, newdat, type="response")
-# # back-transform predicted shuffling response to range from -1 to 1
-# newdat$fit.bt <- rescale(newdat$fit, from=c(0,1), to=c(-1,1))
-# 
-# # generate matrix for predictions at recovtemp24
-# dat24 <- subset(newdat, RecovTemp=="24")[,c(1,2,5)]
-# dat24 <- spread(dat24, pct.loss, fit.bt)
-# rownames(dat24) <- dat24[,1]
-# dat24 <- as.matrix(dat24[,-1])
-# 
-# # generate matrix for predictions at recovtemp29
-# dat29 <- subset(newdat, RecovTemp=="29")[,c(1,2,5)]
-# dat29 <- spread(dat29, pct.loss, fit.bt)
-# rownames(dat29) <- dat29[,1]
-# dat29 <- as.matrix(dat29[,-1])
 
 # plot 2d surface plots for each recovtemp separately
 
