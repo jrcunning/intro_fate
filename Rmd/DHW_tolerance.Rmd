@@ -246,9 +246,11 @@ nmodres <- as_tibble(resdf %>%
 
 # Plot SH as a function of DHW's for each symbiont type and coral species
 nmod1 <- ggplot(dfn, aes(x=dhw, color=dom)) + 
-  geom_point(aes(y=log10(SHn), shape=species), position = position_dodge(width = 0.5)) +
-  scale_color_manual(values=c("cornflowerblue", "coral")) +
-  geom_line(data=nmodres, aes(x=dhw, y=logSH.fit, color=dom, linetype=species), inherit.aes=FALSE) +
+  geom_point(aes(y=log10(SHn), shape=species), position=position_dodge(width=0.5)) +
+  scale_color_manual(values=c("cornflowerblue", "coral"), labels=c("C", "D")) +
+  geom_line(data=nmodres, aes(x=dhw, y=logSH.fit, color=dom, linetype=species), 
+            inherit.aes=FALSE) +
+  #scale_linetype_manual("Species", values=c(1, 2), labels=c("M. cavernosa", "S. siderea")) +
   theme(legend.position=c(0.7,0.8), legend.box="horizontal", legend.key.size=unit(5, "mm"),
         legend.title=element_blank(), legend.margin=margin(0,0,0,0),
         plot.margin = unit(c(0.8,0.1,0.2,0.1), "cm")) +
