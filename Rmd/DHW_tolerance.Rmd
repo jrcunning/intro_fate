@@ -277,7 +277,8 @@ nmod2 <- ggplot(nmodres, aes(x=dhw, y=remain, color=dom)) + geom_line() +
   geom_vline(data=filter(nmodres, species=="ss"), aes(xintercept=4), lty=2, lwd=0.25)
 
 
-fig2 <- plot_grid(nmod1, nmod2, rel_widths=c(0.45,0.55))
+fig2 <- plot_grid(nmod1, nmod2, rel_widths=c(0.45,0.55), labels="AUTO")
+fig2
 ggsave("figures/fig2.png", plot=fig2, device="png", width=7.48, height=3, units="in")
 ```
 
