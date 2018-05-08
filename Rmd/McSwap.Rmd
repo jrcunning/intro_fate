@@ -5,9 +5,23 @@ date: "12/21/2017"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include = FALSE}
 knitr::opts_chunk$set(echo = TRUE, cache=FALSE, warning=FALSE, message=FALSE)
 knitr::opts_knit$set(root.dir = normalizePath(".."))
+
+upper.half.circle <- function(x,y,r,nsteps=100,...){  
+  rs <- seq(0,pi,len=nsteps) 
+  xc <- x+r*cos(rs) 
+  yc <- y+r*sin(rs) 
+  polygon(xc,yc,...) 
+} 
+
+lower.half.circle <- function(x,y,r,nsteps=100,...){ 
+  rs <- seq(0,pi,len=nsteps) 
+  xc <- x-r*cos(rs) 
+  yc <- y-r*sin(rs) 
+  polygon(xc,yc,...) 
+} 
 ```
 
 ```{r tidy_data, include = FALSE, eval = FALSE}
@@ -452,8 +466,8 @@ for (pos2 in split(temp22, temp22$pos2)) with(pos2, {
          code=3, angle=90, length=0.03)
   points(-1*time, prob, col="black", type="o", pch=c(25,22,24,23)[pos2], bg="white", cex=1.2)
 })
-points(-2, 0.79, pch="*", cex=1, font=1)
-points(-3, 0.43, pch="*", cex=1, font=1)
+points(-2, 0.79, pch="*", cex=2, font=1)
+points(-3, 0.43, pch="*", cex=2, font=1)
 
 ## Plot right panel (29)
 temp29 <- subset(df2, temp=="29")  # Subset data
@@ -470,28 +484,27 @@ for (pos2 in split(temp29, temp29$pos2)) with(pos2, {
          code=3, angle=90, length=0.03)
   points(prob ~ time, col="black", type="o", pch=c(25,22,24,23)[pos2], bg="white", cex=1.2)
 })
-points(2, 0.77, pch="*", cex=1, font=1)
+points(2, 0.77, pch="*", cex=2, font=1)
 
-# Draw circle in the center
-upper.half.circle <- function(x,y,r,nsteps=100,...){  
-  rs <- seq(0,pi,len=nsteps) 
-  xc <- x+r*cos(rs) 
-  yc <- y+r*sin(rs) 
-  polygon(xc,yc,...) 
-} 
-
-lower.half.circle <- function(x,y,r,nsteps=100,...){ 
-  rs <- seq(0,pi,len=nsteps) 
-  xc <- x-r*cos(rs) 
-  yc <- y-r*sin(rs) 
-  polygon(xc,yc,...) 
-} 
-
+# Draw circles
 par(new=T)
-plot(NA, asp=1, xlim=c(0,1), ylim=c(0,1), axes=F, xlab="", ylab="", xpd=NA)
-upper.half.circle(-0.04,0.5,0.15,nsteps=1000,col='coral')
-lower.half.circle(-0.04,0.5,0.15,nsteps=1000,col='cornflowerblue')
-points(rep(-0.04,4), c(0.5-0.13, 0.5-0.05, 0.5+0.05, 0.5+0.13), pch=c(25,22,23,24), bg="white", cex=1.2)
+plot(NA, asp=1, xlim=c(0,1), ylim=c(0,1), xaxs="i", yaxs="i", axes=F, xlab="", ylab="", xpd=NA)
+x <- 0; y <- 0.5
+upper.half.circle(x,0.5,0.15,nsteps=1000,col='coral')
+lower.half.circle(x,0.5,0.15,nsteps=1000,col='cornflowerblue')
+points(rep(x,4), c(y-0.12, y-0.05, y+0.05, y+0.12), pch=c(25,22,23,24), bg="white", cex=1.2)
+x <- 1.2
+upper.half.circle(x,0.5,0.15,nsteps=1000,
+                  col=btor[round(with(temp29, temp29[pos2=="D.proximal" & time==8, "prob"])*100, 2)])
+lower.half.circle(x,0.5,0.15,nsteps=1000,
+                  col=btor[round(with(temp29, temp29[pos2=="C.proximal" & time==8, "prob"])*100, 2)])
+points(rep(x,4), c(y-0.12, y-0.05, y+0.05, y+0.12), pch=c(25,22,23,24), bg="white", cex=1.2)
+x <- -1.2
+upper.half.circle(x,0.5,0.15,nsteps=1000,
+                  col=btor[max(1,round(with(temp22, temp22[pos2=="D.proximal" & time==8, "prob"])*100, 2))])
+lower.half.circle(x,0.5,0.15,nsteps=1000,
+                  col=btor[max(1,round(with(temp22, temp22[pos2=="C.proximal" & time==8, "prob"])*100, 2))])
+points(rep(x,4), c(y-0.12, y-0.05, y+0.05, y+0.12), pch=c(25,22,23,24), bg="white", cex=1.2)
 dev.off()
 ```
 ![](../figures/figS1.png)
