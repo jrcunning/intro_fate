@@ -11,8 +11,8 @@ knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
 library(lsmeans)
 library(effects)
 library(scales)
-library(tidyr)
 library(plotly)
+library(tidyverse)
 ```
 
 ### Load symbiont shuffling analysis from GitHub
@@ -65,6 +65,7 @@ mod <- full_join(predictors, shuffle) %>%
 
 modres <- anova(mod, test="F")
 pseudoR2 <- with(summary(mod), 1 - deviance / null.deviance)
+pseudoR2
 
 pred <- mod %>%
   lsmeans(., specs=c("pct.loss", "ADH", "RecovTemp"),
