@@ -6,7 +6,7 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, cache=T, warning=FALSE, message=FALSE)
+knitr::opts_chunk$set(echo = TRUE, cache=FALSE, warning=FALSE, message=FALSE)
 knitr::opts_knit$set(root.dir = normalizePath(".."))
 ```
 
@@ -403,6 +403,7 @@ curvedarrow(from = c(0.3, 1.35), to = c(0.3, 1.15),
 text(x = 0, y = 1.25, labels = "swap", cex=0.9)
 
 dev.off()
+
 ```
 
 ![](../figures/fig1.png)
@@ -433,71 +434,66 @@ pairtests <- pairs(lsm2, by=c("temp", "time"))
 pairtests2 <- rbind(pairtests)[sort(c(1 + 0:9 * 6, 6 + 0:9 * 6)),]
 subset(summary(pairtests2, adjust="none"), p.value < 0.05)
 
-# PLOT
-par(mfcol=c(1,2), mar=c(3,3,1.5,1), mgp=c(1.5,0.3,0), xpd=T, tcl=-0.3)
 
-temp22 <- subset(df2, temp=="22")
-plot(NA, xlim=c(0,8), ylim=c(0,1), data=temp22, yaxt="n", yaxs="i",
-     xlab="Months", ylab="Proportion clade D")
-axis(side = 2, at=c(0,1))
-mtext(side=3, "a) 22°C", adj=0, font=4)
-gradient.rect(par("usr")[1], par("usr")[3], par("usr")[2], par("usr")[4],
-              col=smoothColors("cornflowerblue", 100, "coral"), gradient="y")
+# Create png output device
+png("figures/figS1.png", width=5, height=2.5, units="in", res=300)
+## Plot left panel (22) -----
+temp22 <- subset(df2, temp=="22")  # Subset data
+par(mfrow=c(1,2), mar=c(1.9,3.6,1,0), mgp=c(1.5,0,0), xpd=NA, tcl=0.25, cex.axis=0.8)
+# Create blank plot and axes
+plot(NA, xlim=c(-8.25,0), ylim=c(0,1), yaxt="n", xaxt="n", xaxs="i", xlab="", ylab="")
+gradient.rect(par("usr")[1], par("usr")[3], par("usr")[2], par("usr")[4], col=alpha(btor, 0.8), gradient="y")
+axis(side = 1, at=c(-8, -3, -2, -1, 0), labels = c(8, 3, 2, 1, ""), line=0)
+mtext(side = 1, "Months at 22°C", line=1)
+axis(side = 2, at=c(0, 1), labels=c("100% C", "100% D"), las=1, mgp=c(1.5, 0.5, 0), tcl=-0.25)
+# Plot data and error bars
 for (pos2 in split(temp22, temp22$pos2)) with(pos2, {
-  arrows(time[-1], asymp.LCL[-1], time[-1], asymp.UCL[-1], col="black", code=3, angle=90, length=0.03)
-  points(prob ~ time, col="black", type="o", pch=c(24,23,22,25)[pos2], bg="white", cex=1.2)
+  arrows(-1*time[-1], asymp.LCL[-1], -1*time[-1], asymp.UCL[-1], col="black", 
+         code=3, angle=90, length=0.03)
+  points(-1*time, prob, col="black", type="o", pch=c(25,22,24,23)[pos2], bg="white", cex=1.2)
 })
-points(2, 0.79, pch="*", cex=2, font=1)
-points(3, 0.43, pch="*", cex=2, font=1)
+points(-2, 0.79, pch="*", cex=1, font=1)
+points(-3, 0.43, pch="*", cex=1, font=1)
 
-temp29 <- subset(df2, temp=="29")
-plot(NA, xlim=c(0,8), ylim=c(0,1), data=temp29, yaxt="n",
-     xlab="Months", ylab="Proportion clade D")
-axis(side = 2, at=c(0,1))
-mtext(side=3, "b) 29°C", adj=0, font=4)
-gradient.rect(par("usr")[1], par("usr")[3], par("usr")[2], par("usr")[4],
-              col=smoothColors("cornflowerblue", 100, "coral"), gradient="y")
+## Plot right panel (29)
+temp29 <- subset(df2, temp=="29")  # Subset data
+par(mar=c(1.9,0,1,3.6))  # Set panel margins
+# Create blank plot and axes
+plot(NA, xlim=c(0,8.25), ylim=c(0,1), yaxt="n", xaxs="i", xaxt="n", xlab="", ylab="")
+gradient.rect(par("usr")[1], par("usr")[3], par("usr")[2], par("usr")[4], col=alpha(btor, 0.8), gradient="y")
+axis(side = 1, at=c(0, 1, 2, 3, 8))
+mtext(side = 1, "Months at 29°C", line=1)
+axis(side = 4, at=c(0, 1), labels=c("100% C", "100% D"), las=1, mgp=c(1.5, 0.5, 0), tcl=-0.25)
+# Plot data and error bars
 for (pos2 in split(temp29, temp29$pos2)) with(pos2, {
-  arrows(time[-1], asymp.LCL[-1], time[-1], asymp.UCL[-1], col="black", code=3, angle=90, length=0.03)
-  points(prob ~ time, col="black", type="o", pch=c(24,23,22,25)[pos2], bg="white", cex=1.2)
+  arrows(time[-1], asymp.LCL[-1], time[-1], asymp.UCL[-1], col="black", 
+         code=3, angle=90, length=0.03)
+  points(prob ~ time, col="black", type="o", pch=c(25,22,24,23)[pos2], bg="white", cex=1.2)
 })
-points(2, 0.77, pch="*", cex=2, font=1)
+points(2, 0.77, pch="*", cex=1, font=1)
 
+# Draw circle in the center
+upper.half.circle <- function(x,y,r,nsteps=100,...){  
+  rs <- seq(0,pi,len=nsteps) 
+  xc <- x+r*cos(rs) 
+  yc <- y+r*sin(rs) 
+  polygon(xc,yc,...) 
+} 
+
+lower.half.circle <- function(x,y,r,nsteps=100,...){ 
+  rs <- seq(0,pi,len=nsteps) 
+  xc <- x-r*cos(rs) 
+  yc <- y-r*sin(rs) 
+  polygon(xc,yc,...) 
+} 
+
+par(new=T)
+plot(NA, asp=1, xlim=c(0,1), ylim=c(0,1), axes=F, xlab="", ylab="", xpd=NA)
+upper.half.circle(-0.04,0.5,0.15,nsteps=1000,col='coral')
+lower.half.circle(-0.04,0.5,0.15,nsteps=1000,col='cornflowerblue')
+points(rep(-0.04,4), c(0.5-0.13, 0.5-0.05, 0.5+0.05, 0.5+0.13), pch=c(25,22,23,24), bg="white", cex=1.2)
+dev.off()
 ```
-
-
-
-
-
-
-
-
-```{r DDswaps, eval = FALSE, include = FALSE, fig.height=8, fig.width=3}
-# Look at DD swaps
-DDswap <- mcswap %>% anti_join(CD)
-
-# Fit glm (quasibinomial) with time as a factor and host genotype as factor
-DDswap$geno <- substr(DDswap$core, 1, 1)
-mod <- glm(propD ~ factor(temp) * factor(time) * geno, data=DDswap %>% filter(time==0), family="quasibinomial")
-# Get fitted responses for each group
-lsm <- lsmeans(mod, specs=c("temp", "time", "geno"), type="response")
-xyplot(prob ~ time | temp + geno, data=data.frame(summary(lsm)), type="o")
-
-# Genotype 8 goes back to C-dominance, others not so much. What was starting %C in geno8?
-DDswap %>% filter(time==0) %>% group_by(geno) %>% summarise(meanD=mean(propD))
-
-
-# Plot ending propD vs. starting propD for each core
-sdf <- DDswap %>% select(time, swap, pos, core, temp, propD, geno) %>% spread(time, propD) %>% rename(propD.0=`0`, propD.8=`8`)
-
-with(subset(sdf, temp=="22"), plot(propD.8 ~ propD.0, ylim=c(0,1), xlim=c(0.8,1),
-               col=factor(geno)))
-
-with(subset(sdf, temp=="29"), plot(propD.8 ~ propD.0, ylim=c(0,1), xlim=c(0.8,1),
-               col=factor(geno)))
-
-with(subset(sdf, temp=="22"), plot(log10(1-propD.8) ~ log10(1-propD.0),
-               col=factor(geno)))
-```
+![](../figures/figS1.png)
 
 
