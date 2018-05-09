@@ -222,7 +222,7 @@ plot_grid(mod1, mod2, rel_widths=c(0.45,0.55))
 
 # Alternative approach with SH data normalized
 ```{r}
-# Normalize SH data using the average for each species/symbiont at dhw=0
+# Normalize SH data using the average for each species/symbiont/expt at dhw=0
 dfn <- df %>%
   group_by(species, dom, expt) %>%
   mutate(SHn = 10^(log10(SH) - mean(log10(SH[dhw==0]))))
