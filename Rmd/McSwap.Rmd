@@ -450,7 +450,7 @@ subset(summary(pairtests2, adjust="none"), p.value < 0.05)
 
 
 # Create png output device
-png("figures/figS1.png", width=5, height=2.5, units="in", res=300)
+png("figures/figS2.png", width=5, height=2.5, units="in", res=300)
 ## Plot left panel (22) -----
 temp22 <- subset(df2, temp=="22")  # Subset data
 par(mfrow=c(1,2), mar=c(1.9,3.6,1,0), mgp=c(1.5,0,0), xpd=NA, tcl=0.25, cex.axis=0.8)
@@ -466,8 +466,8 @@ for (pos2 in split(temp22, temp22$pos2)) with(pos2, {
          code=3, angle=90, length=0.03)
   points(-1*time, prob, col="black", type="o", pch=c(25,22,24,23)[pos2], bg="white", cex=1.2)
 })
-points(-2, 0.79, pch="*", cex=2, font=1)
-points(-3, 0.43, pch="*", cex=2, font=1)
+points(-2.5, 0.79, pch="*", cex=2, font=1, col="black")
+points(-3.5, 0.43, pch="*", cex=2, font=1, col="black")
 
 ## Plot right panel (29)
 temp29 <- subset(df2, temp=="29")  # Subset data
@@ -484,7 +484,7 @@ for (pos2 in split(temp29, temp29$pos2)) with(pos2, {
          code=3, angle=90, length=0.03)
   points(prob ~ time, col="black", type="o", pch=c(25,22,24,23)[pos2], bg="white", cex=1.2)
 })
-points(2, 0.77, pch="*", cex=2, font=1)
+points(1.5, 0.77, pch="*", cex=2, font=1, col="black")
 
 # Draw circles
 par(new=T)
@@ -507,6 +507,6 @@ lower.half.circle(x,0.5,0.15,nsteps=1000,
 points(rep(x,4), c(y-0.12, y-0.05, y+0.05, y+0.12), pch=c(25,22,23,24), bg="white", cex=1.2)
 dev.off()
 ```
-![](../figures/figS1.png)
+![](../figures/figS2.png)
 
 
